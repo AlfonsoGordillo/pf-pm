@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}{{ t.projects }}{% endblock %}
+{% block nav_proj %}active{% endblock %}
+
+{% block content %}
+<div class="p-6 space-y-5">
+  <div class="flex items-center justify-between">
+    <div><h1 class="text-xl font-bold text-white">{{ t.projects }}</h1><p class="text-sm text-slate-400 mt-0.5">{{ projects | length }} projects</p></div>
+  </div>
+
+  <form method="get" action="/projects" class="flex flex-wrap gap-3">
+    <input type="text" name="search" value="{{ search }}" placeholder="{{ t.search_placeholder }}" style="width:220px"/>
+    <select name="status">
+      <option value="">{{ t.all_statuses }}</option>
+      {% for s in ['planning','active','on_hold','completed'] %}
+      <option value="{{ s }}" {% if filter_status == s %}selected{% endif %}>{{ t['st_' + s] }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn-primary">{{ t.filter }}</button>
+    {% if filter_status or search %}<a href="/projects" class="py-2 px-4 text-slate-400 hover:text-slate-200 text-sm">✕</a>{% endif %}
+  </form>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    {% for p in projects %}
+    <a href="/projects/{{ p.id }}" class="card p-5 block hover:border-indigo-500/30 transition-colors" style="border-color:rgba(255,255,255,.07)">
+      <div class="flex items-start justify-between mb-3">
+        <div>
+          <div class="font-semibold text-slate-100">{{ p.name }}</div>
+          <div class="text-xs text-slate-500 mt-0.5">{{ p.client }} · {{ p.category }}</div>
+        </div>
+        <span class="badge badge-{{ p.status }} ml-2 flex-shrink-0">{{ t['st_' + p.status] if ('st_' + p.status) in t else p.status }}</span>
+      </div>
+      <p class="text-xs text-slate-400 mb-4 line-clamp-2">{{ p.description }}</p>
+      <div class="space-y-2">
+        <div class="flex justify-between text-xs text-slate-400">
+          <span>{{ t.progress }}</span><span class="font-semibold {% if p.progress >= 75 %}text-green-400{% elif p.progress >= 40 %}text-indigo-400{% else %}text-orange-400{% endif %}">{{ p.progress }}%</span>
+        </div>
+        <div class="progress-bar"><div style="height:6px;border-radius:3px;width:{{ p.progress }}%;background:{% if p.progress >= 75 %}#4ade80{% elif p.progress >= 40 %}#818cf8{% else %}#fb923c{% endif %}"></div></div>
+      </div>
+      <div class="flex justify-between mt-3 pt-3 border-t" style="border-color:rgba(255,255,255,.05)">
+        <div><div class="text-xs text-slate-500">{{ t.budget }}</div><div class="text-sm font-semibold text-slate-200">${{ "{:,.0f}".format(p.budget) }}</div></div>
+        <div class="text-right"><div class="text-xs text-slate-500">{{ t.spent }}</div><div class="text-sm font-semibold {% if p.spent/p.budget > 0.9 %}text-red-400{% elif p.spent/p.budget > 0.7 %}text-yellow-400{% else %}text-slate-200{% endif %}">${{ "{:,.0f}".format(p.spent) }}</div></div>
+        <div class="text-right"><div class="text-xs text-slate-500">{{ t.end_date }}</div><div class="text-sm text-slate-300">{{ p.end_date.strftime('%b %d') }}</div></div>
+      </div>
+    </a>
+    {% endfor %}
+    {% if not projects %}<div class="col-span-2 text-center py-16 text-slate-500">No projects found</div>{% endif %}
+  </div>
+</div>
+{% endblock %}

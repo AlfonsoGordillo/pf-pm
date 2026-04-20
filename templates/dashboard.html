@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}{{ t.dashboard }}{% endblock %}
+{% block nav_dash %}active{% endblock %}
+
+{% block content %}
+<div class="p-6 space-y-6">
+  <div class="flex items-center justify-between">
+    <div><h1 class="text-xl font-bold text-white">{{ t.dashboard }}</h1><p class="text-sm text-slate-400 mt-0.5">Projects Factory PM AI</p></div>
+    <a href="/projects" class="btn-primary text-sm">+ {{ t.projects }}</a>
+  </div>
+
+  <!-- Metrics -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="card p-5">
+      <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">{{ t.total_projects }}</div>
+      <div class="text-3xl font-bold text-white">{{ projects | length }}</div>
+    </div>
+    <div class="card p-5">
+      <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">{{ t.active_projects }}</div>
+      <div class="text-3xl font-bold" style="color:#4ade80">{{ active_count }}</div>
+    </div>
+    <div class="card p-5">
+      <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">{{ t.total_budget }}</div>
+      <div class="text-3xl font-bold text-white">${{ "{:,.0f}".format(total_budget) }}</div>
+      <div class="text-xs text-slate-500 mt-1">${{ "{:,.0f}".format(total_spent) }} spent</div>
+    </div>
+    <div class="card p-5">
+      <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">{{ t.overall_progress }}</div>
+      <div class="text-3xl font-bold" style="color:#818cf8">{{ avg_progress }}%</div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div class="card p-5">
+      <div class="text-sm font-semibold text-slate-200 mb-4">Budget vs Spent by Project</div>
+      <canvas id="budgetChart" height="200"></canvas>
+    </div>
+    <div class="card p-5">
+      <div class="text-sm font-semibold text-slate-200 mb-4">Progress by Project</div>
+      <canvas id="progressChart" height="200"></canvas>
+    </div>
+  </div>
+
+  <!-- Projects list -->
+  <div class="card">
+    <div class="flex items-center justify-between px-5 py-4 border-b" style="border-color:rgba(255,255,255,.06)">
+      <div class="text-sm font-semibold text-slate-200">{{ t.projects }}</div>
+      <a href="/projects" class="text-xs text-indigo-400 hover:text-indigo-300">{{ t.projects }} →</a>
+    </div>
+    <table>
+      <thead><tr><th>{{ t.project_name }}</th><th>{{ t.client }}</th><th>{{ t.status }}</th><th>{{ t.progress }}</th><th>{{ t.budget }}</th></tr></thead>
+      <tbody>
+        {% for p in projects %}
+        <tr class="cursor-pointer" onclick="location.href='/projects/{{ p.id }}'">
+          <td><div class="font-medium text-slate-200">{{ p.name }}</div><div class="text-xs text-slate-500">{{ p.category }}</div></td>
+          <td class="text-slate-400">{{ p.client }}</td>
+          <td><span class="badge badge-{{ p.status }}">{{ t['st_' + p.status] if ('st_' + p.status) in t else p.status }}</span></td>
+          <td>
+            <div class="flex items-center gap-2">
+              <div class="progress-bar w-20"><div style="height:6px;border-radius:3px;width:{{ p.progress }}%;background:{% if p.progress >= 75 %}#4ade80{% elif p.progress >= 40 %}#818cf8{% else %}#fb923c{% endif %}"></div></div>
+              <span class="text-xs text-slate-400">{{ p.progress }}%</span>
+            </div>
+          </td>
+          <td>
+            <div class="text-slate-200 font-medium">${{ "{:,.0f}".format(p.budget) }}</div>
+            <div class="text-xs text-slate-500">${{ "{:,.0f}".format(p.spent) }} spent</div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const names = {{ projects | map(attribute='name') | list | tojson }};
+const budgets = {{ projects | map(attribute='budget') | list | tojson }};
+const spents = {{ projects | map(attribute='spent') | list | tojson }};
+const progresses = {{ projects | map(attribute='progress') | list | tojson }};
+
+new Chart(document.getElementById('budgetChart'), {
+  type: 'bar',
+  data: { labels: names.map(n => n.length > 20 ? n.slice(0,20)+'…' : n),
+    datasets: [
+      { label: 'Budget', data: budgets, backgroundColor: 'rgba(99,102,241,.4)', borderRadius: 4 },
+      { label: 'Spent', data: spents, backgroundColor: 'rgba(139,92,246,.8)', borderRadius: 4 }
+    ]},
+  options: { responsive: true, plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } },
+    scales: { x: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { color: '#64748b', font: { size: 10 } } },
+              y: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { color: '#64748b', font: { size: 10 } } } } }
+});
+new Chart(document.getElementById('progressChart'), {
+  type: 'bar',
+  data: { labels: names.map(n => n.length > 20 ? n.slice(0,20)+'…' : n),
+    datasets: [{ label: '%', data: progresses, backgroundColor: progresses.map(p => p>=75?'rgba(74,222,128,.7)':p>=40?'rgba(129,140,248,.7)':'rgba(251,146,60,.7)'), borderRadius: 4 }]},
+  options: { responsive: true, plugins: { legend: { display: false } }, scales: {
+    x: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { color: '#64748b', font: { size: 10 } } },
+    y: { max: 100, grid: { color: 'rgba(255,255,255,.04)' }, ticks: { color: '#64748b', font: { size: 10 }, callback: v => v+'%' } } } }
+});
+</script>
+{% endblock %}

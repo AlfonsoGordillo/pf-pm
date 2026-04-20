@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Login — PM AI | Projects Factory</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>body{background:#070711;font-family:'Inter',system-ui,sans-serif}input{background:#0a0f1e;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#e2e8f0;font-size:14px;padding:10px 14px;width:100%;outline:none;transition:border-color .15s}input:focus{border-color:#6366f1}</style>
+</head>
+<body class="min-h-screen flex items-center justify-center" style="background:radial-gradient(ellipse at 50% 0%,rgba(99,102,241,.12) 0%,#070711 60%)">
+<div class="w-full max-w-sm px-4">
+  <div class="text-center mb-8">
+    <div class="inline-flex items-center gap-3 mb-4">
+      <div style="width:44px;height:44px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:12px;display:flex;align-items:center;justify-content:center">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      </div>
+      <div class="text-left"><div class="text-lg font-bold text-white leading-none">PM AI</div><div class="text-xs" style="color:#6366f1">Projects Factory</div></div>
+    </div>
+    <h1 class="text-xl font-semibold text-white">{{ t.login_title }}</h1>
+    <p class="text-sm text-slate-400 mt-1">{{ t.login_subtitle }}</p>
+  </div>
+  <div style="background:#0f172a;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:28px">
+    {% if error %}<div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:10px 14px;margin-bottom:16px;color:#f87171;font-size:13px">{{ error }}</div>{% endif %}
+    <form method="post" action="/login" class="space-y-4">
+      <div><label class="block text-xs font-medium text-slate-400 mb-1.5">{{ t.email }}</label><input type="email" name="email" value="demo@projectsfactory.io" required/></div>
+      <div><label class="block text-xs font-medium text-slate-400 mb-1.5">{{ t.password }}</label><input type="password" name="password" value="demo123" required/></div>
+      <button type="submit" class="w-full py-2.5 rounded-lg font-semibold text-sm text-white hover:opacity-90 transition-opacity" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">{{ t.sign_in }}</button>
+    </form>
+    <div class="mt-5 pt-4 border-t" style="border-color:rgba(255,255,255,.07)"><p class="text-center text-xs text-slate-500">Demo: demo@projectsfactory.io / demo123</p></div>
+  </div>
+  <div class="flex justify-center gap-3 mt-5">
+    <a href="/lang/en" class="text-xs {% if lang=='en' %}text-indigo-400 font-semibold{% else %}text-slate-500 hover:text-slate-300{% endif %}">EN</a>
+    <span class="text-slate-600">|</span>
+    <a href="/lang/es" class="text-xs {% if lang=='es' %}text-indigo-400 font-semibold{% else %}text-slate-500 hover:text-slate-300{% endif %}">ES</a>
+  </div>
+</div>
+</body></html>
