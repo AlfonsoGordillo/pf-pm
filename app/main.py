@@ -131,6 +131,104 @@ async def project_detail(request: Request, project_id: int, db: AsyncSession = D
     })
 
 
+# ── Projects CRUD ───────────────────────────────────────────────────────────
+
+@app.post("/projects")
+async def create_project(request: Request, db: AsyncSession = Depends(get_db),
+    name: str = Form(...), client: str = Form(""), category: str = Form("tecnología"),
+    status: str = Form("planning"), budget: float = Form(0), spent: float = Form(0),
+    progress: int = Form(0), start_date: str = Form(...), end_date: str = Form(...),
+    description: str = Form(""), owner: str = Form("Demo User")):
+    if not auth_check(request):
+        return RedirectResponse(url="/login", status_code=302)
+    from datetime import date as dt
+    p = Project(name=name, client=client, category=category, status=status,
+                budget=budget, spent=spent, progress=min(100, max(0, progress)),
+                start_date=dt.fromisoformat(start_date), end_date=dt.fromisoformat(end_date),
+                description=description, owner=owner)
+    db.add(p)
+    await db.commit()
+    return RedirectResponse(url="/projects", status_code=302)
+
+
+@app.post("/projects/{project_id}/edit")
+async def edit_project(project_id: int, request: Request, db: AsyncSession = Depends(get_db),
+    name: str = Form(...), client: str = Form(""), category: str = Form("tecnología"),
+    status: str = Form("active"), budget: float = Form(0), spent: float = Form(0),
+    progress: int = Form(0), start_date: str = Form(...), end_date: str = Form(...),
+    description: str = Form(""), owner: str = Form("Demo User")):
+    if not auth_check(request):
+        return RedirectResponse(url="/login", status_code=302)
+    from datetime import date as dt
+    p = (await db.execute(select(Project).where(Project.id == project_id))).scalar_one_or_none()
+    if not p:
+        raise HTTPException(status_code=404)
+    p.name = name; p.client = client; p.category = category; p.status = status
+    p.budget = budget; p.spent = spent; p.progress = min(100, max(0, progress))
+    p.start_date = dt.fromisoformat(start_date); p.end_date = dt.fromisoformat(end_date)
+    p.description = description; p.owner = owner
+    await db.commit()
+    return RedirectResponse(url=f"/projects/{project_id}", status_code=302)
+
+
+@app.post("/projects/{project_id}/delete")
+async def delete_project(project_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+    if not auth_check(request):
+        return RedirectResponse(url="/login", status_code=302)
+    p = (await db.execute(select(Project).where(Project.id == project_id))).scalar_one_or_none()
+    if p:
+        await db.delete(p)
+        await db.commit()
+    return RedirectResponse(url="/projects", status_code=302)
+
+
+# ── Team Members CRUD ────────────────────────────────────────────────────────
+
+@app.get("/team", response_class=HTMLResponse)
+async def team_page(request: Request, db: AsyncSession = Depends(get_db)):
+    if not auth_check(request):
+        return RedirectResponse(url="/login", status_code=302)
+    lang = get_lang(request)
+    members = (await db.execute(select(TeamMember).order_by(TeamMember.name))).scalars().all()
+    return templates.TemplateResponse(request, "team.html", {"t": get_t(lang), "lang": lang, "members": members})
+
+
+@app.post("/team")
+async def create_member(request: Request, db: AsyncSession = Depends(get_db),
+    name: str = Form(...), role: str = Form(""), email: str = Form(""),
+    avatar_color: str = Form("#6366f1")):
+    if not auth_check(request):
+        return RedirectResponse(url="/login", status_code=302)
+    db.add(TeamMember(name=name, role=role, email=email, avatar_color=avatar_color))
+    await db.commit()
+    return RedirectResponse(url="/team", status_code=302)
+
+
+@app.post("/team/{member_id}/edit")
+async def edit_member(member_id: int, request: Request, db: AsyncSession = Depends(get_db),
+    name: str = Form(...), role: str = Form(""), email: str = Form(""),
+    avatar_color: str = Form("#6366f1")):
+    if not auth_check(request):
+        return RedirectResponse(url="/login", status_code=302)
+    m = (await db.execute(select(TeamMember).where(TeamMember.id == member_id))).scalar_one_or_none()
+    if not m:
+        raise HTTPException(status_code=404)
+    m.name = name; m.role = role; m.email = email; m.avatar_color = avatar_color
+    await db.commit()
+    return RedirectResponse(url="/team", status_code=302)
+
+
+@app.post("/team/{member_id}/delete")
+async def delete_member(member_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+    if not auth_check(request):
+        return RedirectResponse(url="/login", status_code=302)
+    m = (await db.execute(select(TeamMember).where(TeamMember.id == member_id))).scalar_one_or_none()
+    if m:
+        await db.delete(m)
+        await db.commit()
+    return RedirectResponse(url="/team", status_code=302)
+
+
 @app.post("/tasks/{task_id}/status")
 async def update_task_status(task_id: int, request: Request, db: AsyncSession = Depends(get_db)):
     if not auth_check(request):

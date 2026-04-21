@@ -3,11 +3,21 @@
 {% block nav_proj %}active{% endblock %}
 
 {% block content %}
-<div class="p-6 space-y-5">
+<div class="p-6 space-y-5" x-data="projectsCrud()">
+
+  <!-- Header -->
   <div class="flex items-center justify-between">
-    <div><h1 class="text-xl font-bold text-white">{{ t.projects }}</h1><p class="text-sm text-slate-400 mt-0.5">{{ projects | length }} projects</p></div>
+    <div>
+      <h1 class="text-xl font-bold text-white">{{ t.projects }}</h1>
+      <p class="text-sm text-slate-400 mt-0.5">{{ projects | length }} projects</p>
+    </div>
+    <button @click="openCreate()" class="btn-primary flex items-center gap-2">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      {{ t.new_project }}
+    </button>
   </div>
 
+  <!-- Filters -->
   <form method="get" action="/projects" class="flex flex-wrap gap-3">
     <input type="text" name="search" value="{{ search }}" placeholder="{{ t.search_placeholder }}" style="width:220px"/>
     <select name="status">
@@ -20,31 +30,153 @@
     {% if filter_status or search %}<a href="/projects" class="py-2 px-4 text-slate-400 hover:text-slate-200 text-sm">✕</a>{% endif %}
   </form>
 
+  <!-- Cards grid -->
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
     {% for p in projects %}
-    <a href="/projects/{{ p.id }}" class="card p-5 block hover:border-indigo-500/30 transition-colors" style="border-color:rgba(255,255,255,.07)">
+    <div class="card p-5" style="border-color:rgba(255,255,255,.07)">
       <div class="flex items-start justify-between mb-3">
-        <div>
-          <div class="font-semibold text-slate-100">{{ p.name }}</div>
+        <a href="/projects/{{ p.id }}" class="flex-1 min-w-0">
+          <div class="font-semibold text-slate-100 hover:text-indigo-300 transition-colors">{{ p.name }}</div>
           <div class="text-xs text-slate-500 mt-0.5">{{ p.client }} · {{ p.category }}</div>
+        </a>
+        <div class="flex items-center gap-2 ml-2 flex-shrink-0">
+          <span class="badge badge-{{ p.status }}">{{ t['st_' + p.status] if ('st_' + p.status) in t else p.status }}</span>
+          <button @click="openEdit({{ p.id }}, '{{ p.name|replace("'","\\'") }}', '{{ p.client|replace("'","\\'") }}', '{{ p.category }}', '{{ p.status }}', {{ p.budget }}, {{ p.spent }}, {{ p.progress }}, '{{ p.start_date }}', '{{ p.end_date }}', '{{ p.description|replace("'","\\'") }}', '{{ p.owner }}')"
+                  class="p-1.5 rounded text-slate-500 hover:text-indigo-400 hover:bg-indigo-500/10 transition-colors">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button @click="confirmDelete({{ p.id }}, '{{ p.name|replace("'","\\'") }}')"
+                  class="p-1.5 rounded text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+          </button>
         </div>
-        <span class="badge badge-{{ p.status }} ml-2 flex-shrink-0">{{ t['st_' + p.status] if ('st_' + p.status) in t else p.status }}</span>
       </div>
       <p class="text-xs text-slate-400 mb-4 line-clamp-2">{{ p.description }}</p>
       <div class="space-y-2">
         <div class="flex justify-between text-xs text-slate-400">
-          <span>{{ t.progress }}</span><span class="font-semibold {% if p.progress >= 75 %}text-green-400{% elif p.progress >= 40 %}text-indigo-400{% else %}text-orange-400{% endif %}">{{ p.progress }}%</span>
+          <span>{{ t.progress }}</span>
+          <span class="font-semibold {% if p.progress >= 75 %}text-green-400{% elif p.progress >= 40 %}text-indigo-400{% else %}text-orange-400{% endif %}">{{ p.progress }}%</span>
         </div>
         <div class="progress-bar"><div style="height:6px;border-radius:3px;width:{{ p.progress }}%;background:{% if p.progress >= 75 %}#4ade80{% elif p.progress >= 40 %}#818cf8{% else %}#fb923c{% endif %}"></div></div>
       </div>
       <div class="flex justify-between mt-3 pt-3 border-t" style="border-color:rgba(255,255,255,.05)">
         <div><div class="text-xs text-slate-500">{{ t.budget }}</div><div class="text-sm font-semibold text-slate-200">${{ "{:,.0f}".format(p.budget) }}</div></div>
-        <div class="text-right"><div class="text-xs text-slate-500">{{ t.spent }}</div><div class="text-sm font-semibold {% if p.spent/p.budget > 0.9 %}text-red-400{% elif p.spent/p.budget > 0.7 %}text-yellow-400{% else %}text-slate-200{% endif %}">${{ "{:,.0f}".format(p.spent) }}</div></div>
-        <div class="text-right"><div class="text-xs text-slate-500">{{ t.end_date }}</div><div class="text-sm text-slate-300">{{ p.end_date.strftime('%b %d') }}</div></div>
+        <div class="text-right"><div class="text-xs text-slate-500">{{ t.spent }}</div><div class="text-sm font-semibold {% if p.budget and p.spent/p.budget > 0.9 %}text-red-400{% elif p.budget and p.spent/p.budget > 0.7 %}text-yellow-400{% else %}text-slate-200{% endif %}">${{ "{:,.0f}".format(p.spent) }}</div></div>
+        <div class="text-right"><div class="text-xs text-slate-500">{{ t.end_date }}</div><div class="text-sm text-slate-300">{{ p.end_date.strftime('%b %d, %Y') }}</div></div>
       </div>
-    </a>
+    </div>
     {% endfor %}
     {% if not projects %}<div class="col-span-2 text-center py-16 text-slate-500">No projects found</div>{% endif %}
   </div>
+
+  <!-- ── Create / Edit Modal ─────────────────────────────────── -->
+  <div x-show="showForm" x-cloak style="position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:16px">
+    <div style="position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px)" @click="showForm=false"></div>
+    <div class="relative w-full max-w-2xl card p-6 overflow-y-auto" style="max-height:90vh;z-index:1">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-base font-bold text-white" x-text="editId ? '{{ t.edit_project }}' : '{{ t.new_project }}'"></h2>
+        <button @click="showForm=false" class="text-slate-500 hover:text-slate-300">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <form :action="editId ? '/projects/' + editId + '/edit' : '/projects'" method="post" class="space-y-4">
+        <div class="grid grid-cols-2 gap-4">
+          <div class="col-span-2">
+            <label class="block text-xs text-slate-400 mb-1">{{ t.project_name }} *</label>
+            <input name="name" :value="form.name" required style="width:100%" placeholder="E.g. CRM Migration"/>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">{{ t.client }}</label>
+            <input name="client" :value="form.client" style="width:100%" placeholder="Client name"/>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">{{ t.category }}</label>
+            <select name="category" style="width:100%">
+              <template x-for="c in ['tecnología','salud','fintech','retail','educación','manufactura','legal','otro']">
+                <option :value="c" :selected="form.category === c" x-text="c"></option>
+              </template>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">{{ t.status }}</label>
+            <select name="status" style="width:100%">
+              {% for s in ['planning','active','on_hold','completed'] %}
+              <option value="{{ s }}" x-bind:selected="form.status === '{{ s }}'">{{ t['st_' + s] }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">{{ t.progress }} (0–100)</label>
+            <input name="progress" type="number" min="0" max="100" :value="form.progress" style="width:100%"/>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">{{ t.budget }} ($)</label>
+            <input name="budget" type="number" min="0" step="1000" :value="form.budget" style="width:100%"/>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">{{ t.spent }} ($)</label>
+            <input name="spent" type="number" min="0" step="100" :value="form.spent" style="width:100%"/>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">{{ t.start_date }}</label>
+            <input name="start_date" type="date" :value="form.start_date" required style="width:100%"/>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">{{ t.end_date }}</label>
+            <input name="end_date" type="date" :value="form.end_date" required style="width:100%"/>
+          </div>
+          <div class="col-span-2">
+            <label class="block text-xs text-slate-400 mb-1">{{ t.description }}</label>
+            <textarea name="description" rows="2" style="width:100%;background:#0a0f1e;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#e2e8f0;font-size:13px;padding:8px 12px;outline:none;resize:vertical" x-text="form.description"></textarea>
+          </div>
+        </div>
+        <div class="flex gap-3 pt-2">
+          <button type="submit" class="btn-primary">{{ t.save }}</button>
+          <button type="button" @click="showForm=false" class="py-2 px-4 text-sm text-slate-400 hover:text-slate-200">{{ t.cancel }}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Delete Confirm Modal ────────────────────────────────── -->
+  <div x-show="showDelete" x-cloak style="position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:16px">
+    <div style="position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px)" @click="showDelete=false"></div>
+    <div class="relative card p-6 w-full max-w-sm" style="z-index:1">
+      <h2 class="text-base font-bold text-white mb-2">{{ t.delete_project }}</h2>
+      <p class="text-sm text-slate-400 mb-5">{{ t.delete_confirm }} <span class="text-white font-semibold" x-text="deleteLabel"></span>?</p>
+      <div class="flex gap-3">
+        <form :action="'/projects/' + deleteId + '/delete'" method="post">
+          <button type="submit" class="py-2 px-4 rounded-lg text-sm font-semibold text-white" style="background:#ef4444">{{ t.delete }}</button>
+        </form>
+        <button @click="showDelete=false" class="py-2 px-4 text-sm text-slate-400 hover:text-slate-200">{{ t.cancel }}</button>
+      </div>
+    </div>
+  </div>
+
 </div>
+
+<script>
+function projectsCrud() {
+  return {
+    showForm: false, showDelete: false,
+    editId: null, deleteId: null, deleteLabel: '',
+    form: { name:'', client:'', category:'tecnología', status:'planning', budget:0, spent:0, progress:0, start_date:'', end_date:'', description:'', owner:'Demo User' },
+    openCreate() {
+      this.editId = null;
+      this.form = { name:'', client:'', category:'tecnología', status:'planning', budget:0, spent:0, progress:0,
+        start_date: new Date().toISOString().slice(0,10),
+        end_date: new Date(Date.now()+90*864e5).toISOString().slice(0,10),
+        description:'', owner:'Demo User' };
+      this.showForm = true;
+    },
+    openEdit(id, name, client, category, status, budget, spent, progress, start_date, end_date, description, owner) {
+      this.editId = id;
+      this.form = { name, client, category, status, budget, spent, progress, start_date, end_date, description, owner };
+      this.showForm = true;
+    },
+    confirmDelete(id, label) { this.deleteId = id; this.deleteLabel = label; this.showDelete = true; },
+  }
+}
+</script>
 {% endblock %}

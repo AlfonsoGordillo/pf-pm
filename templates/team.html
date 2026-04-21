@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}{{ t.team }}{% endblock %}
+{% block nav_team %}active{% endblock %}
+
+{% block content %}
+<div class="p-6 space-y-5" x-data="teamCrud()">
+
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-xl font-bold text-white">{{ t.team }}</h1>
+      <p class="text-sm text-slate-400 mt-0.5">{{ members | length }} {{ t.members }}</p>
+    </div>
+    <button @click="openCreate()" class="btn-primary flex items-center gap-2">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      {{ t.new_member }}
+    </button>
+  </div>
+
+  <!-- Members grid -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    {% for m in members %}
+    <div class="card p-5 flex items-start gap-4">
+      <div class="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold flex-shrink-0"
+           style="background:{{ m.avatar_color }}">{{ m.name[0] }}</div>
+      <div class="flex-1 min-w-0">
+        <div class="font-semibold text-slate-100">{{ m.name }}</div>
+        <div class="text-xs text-indigo-400 mt-0.5">{{ m.role }}</div>
+        {% if m.email %}
+        <div class="text-xs text-slate-500 mt-1 truncate">{{ m.email }}</div>
+        {% endif %}
+      </div>
+      <div class="flex gap-1.5 flex-shrink-0">
+        <button @click="openEdit({{ m.id }}, '{{ m.name|replace("'","\\'") }}', '{{ m.role|replace("'","\\'") }}', '{{ m.email }}', '{{ m.avatar_color }}')"
+                class="p-1.5 rounded text-slate-500 hover:text-indigo-400 hover:bg-indigo-500/10 transition-colors">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+        <button @click="confirmDelete({{ m.id }}, '{{ m.name|replace("'","\\'") }}')"
+                class="p-1.5 rounded text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        </button>
+      </div>
+    </div>
+    {% endfor %}
+    {% if not members %}
+    <div class="col-span-3 text-center py-16 text-slate-500">No team members yet</div>
+    {% endif %}
+  </div>
+
+  <!-- ── Create / Edit Modal ─────────────────────────────────── -->
+  <div x-show="showForm" x-cloak style="position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:16px">
+    <div style="position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px)" @click="showForm=false"></div>
+    <div class="relative w-full max-w-md card p-6" style="z-index:1">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-base font-bold text-white" x-text="editId ? '{{ t.edit_member }}' : '{{ t.new_member }}'"></h2>
+        <button @click="showForm=false" class="text-slate-500 hover:text-slate-300">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <form :action="editId ? '/team/' + editId + '/edit' : '/team'" method="post" class="space-y-4">
+        <!-- Avatar preview -->
+        <div class="flex items-center gap-4 mb-2">
+          <div class="w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold flex-shrink-0 transition-colors"
+               :style="'background:' + form.avatar_color" x-text="form.name ? form.name[0].toUpperCase() : '?'"></div>
+          <div class="flex-1">
+            <label class="block text-xs text-slate-400 mb-1">{{ t.avatar_color }}</label>
+            <div class="flex gap-2 flex-wrap">
+              <template x-for="c in colors">
+                <button type="button" @click="form.avatar_color = c"
+                        class="w-6 h-6 rounded-full transition-all"
+                        :style="'background:' + c + ';outline:' + (form.avatar_color===c ? '2px solid white' : 'none') + ';outline-offset:2px'"></button>
+              </template>
+            </div>
+          </div>
+        </div>
+        <input type="hidden" name="avatar_color" :value="form.avatar_color"/>
+
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">{{ t.name }} *</label>
+          <input name="name" x-model="form.name" required style="width:100%" placeholder="Full name"/>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">{{ t.role }}</label>
+          <input name="role" x-model="form.role" style="width:100%" placeholder="E.g. Frontend Developer"/>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">{{ t.email }}</label>
+          <input name="email" type="email" x-model="form.email" style="width:100%" placeholder="email@company.com"/>
+        </div>
+
+        <div class="flex gap-3 pt-2">
+          <button type="submit" class="btn-primary">{{ t.save }}</button>
+          <button type="button" @click="showForm=false" class="py-2 px-4 text-sm text-slate-400 hover:text-slate-200">{{ t.cancel }}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Delete Confirm Modal ────────────────────────────────── -->
+  <div x-show="showDelete" x-cloak style="position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:16px">
+    <div style="position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px)" @click="showDelete=false"></div>
+    <div class="relative card p-6 w-full max-w-sm" style="z-index:1">
+      <h2 class="text-base font-bold text-white mb-2">{{ t.delete_member }}</h2>
+      <p class="text-sm text-slate-400 mb-5">{{ t.delete_confirm }} <span class="text-white font-semibold" x-text="deleteLabel"></span>?</p>
+      <div class="flex gap-3">
+        <form :action="'/team/' + deleteId + '/delete'" method="post">
+          <button type="submit" class="py-2 px-4 rounded-lg text-sm font-semibold text-white" style="background:#ef4444">{{ t.delete }}</button>
+        </form>
+        <button @click="showDelete=false" class="py-2 px-4 text-sm text-slate-400 hover:text-slate-200">{{ t.cancel }}</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function teamCrud() {
+  return {
+    showForm: false, showDelete: false,
+    editId: null, deleteId: null, deleteLabel: '',
+    colors: ['#6366f1','#8b5cf6','#ec4899','#ef4444','#f97316','#eab308','#22c55e','#14b8a6','#06b6d4','#3b82f6','#64748b','#a855f7'],
+    form: { name: '', role: '', email: '', avatar_color: '#6366f1' },
+    openCreate() {
+      this.editId = null;
+      this.form = { name: '', role: '', email: '', avatar_color: '#6366f1' };
+      this.showForm = true;
+    },
+    openEdit(id, name, role, email, avatar_color) {
+      this.editId = id;
+      this.form = { name, role, email, avatar_color };
+      this.showForm = true;
+    },
+    confirmDelete(id, label) { this.deleteId = id; this.deleteLabel = label; this.showDelete = true; },
+  }
+}
+</script>
+{% endblock %}

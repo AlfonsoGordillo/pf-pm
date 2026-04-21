@@ -24,6 +24,13 @@ TRANSLATIONS = {
         "pr_low": "Low", "pr_medium": "Medium", "pr_high": "High", "pr_critical": "Critical",
         "blocked": "Blocked", "hours": "h", "assigned": "Assigned to",
         "no_tasks": "No tasks in this column", "filter": "Filter", "save": "Save",
+        "new_project": "New Project", "edit_project": "Edit Project",
+        "delete_project": "Delete Project", "delete_confirm": "Are you sure you want to delete",
+        "delete": "Delete", "cancel": "Cancel", "description": "Description",
+        "start_date": "Start Date", "category": "Category",
+        "new_member": "New Member", "edit_member": "Edit Member",
+        "delete_member": "Delete Member", "members": "members",
+        "name": "Name", "role": "Role", "avatar_color": "Avatar Color",
     },
     "es": {
         "app_name": "PM AI", "tagline": "Gestión de Proyectos con IA",
@@ -51,6 +58,13 @@ TRANSLATIONS = {
         "pr_low": "Baja", "pr_medium": "Media", "pr_high": "Alta", "pr_critical": "Crítica",
         "blocked": "Bloqueado", "hours": "h", "assigned": "Asignado a",
         "no_tasks": "Sin tareas en esta columna", "filter": "Filtrar", "save": "Guardar",
+        "new_project": "Nuevo Proyecto", "edit_project": "Editar Proyecto",
+        "delete_project": "Eliminar Proyecto", "delete_confirm": "¿Seguro que deseas eliminar",
+        "delete": "Eliminar", "cancel": "Cancelar", "description": "Descripción",
+        "start_date": "Fecha Inicio", "category": "Categoría",
+        "new_member": "Nuevo Miembro", "edit_member": "Editar Miembro",
+        "delete_member": "Eliminar Miembro", "members": "miembros",
+        "name": "Nombre", "role": "Rol", "avatar_color": "Color Avatar",
     },
 }
 
