@@ -46,7 +46,7 @@ async def login_page(request: Request):
     if auth_check(request):
         return RedirectResponse(url="/dashboard", status_code=302)
     lang = get_lang(request)
-    return templates.TemplateResponse("login.html", {"request": request, "t": get_t(lang), "lang": lang})
+    return templates.TemplateResponse(request, "login.html", {"t": get_t(lang), "lang": lang})
 
 
 @app.post("/login")
@@ -55,8 +55,8 @@ async def login(request: Request, email: str = Form(...), password: str = Form(.
     user = result.scalar_one_or_none()
     lang = get_lang(request)
     if not user or not verify_password(password, user.password_hash):
-        return templates.TemplateResponse("login.html", {
-            "request": request, "t": get_t(lang), "lang": lang,
+        return templates.TemplateResponse(request, "login.html", {
+            "t": get_t(lang), "lang": lang,
             "error": "Invalid credentials" if lang == "en" else "Credenciales incorrectas"
         })
     response = RedirectResponse(url="/dashboard", status_code=302)
@@ -88,8 +88,8 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
     total_spent = sum(p.spent for p in projects)
     active = [p for p in projects if p.status == "active"]
     avg_progress = round(sum(p.progress for p in projects) / len(projects), 1) if projects else 0
-    return templates.TemplateResponse("dashboard.html", {
-        "request": request, "t": get_t(lang), "lang": lang,
+    return templates.TemplateResponse(request, "dashboard.html", {
+        "t": get_t(lang), "lang": lang,
         "projects": projects, "total_budget": total_budget, "total_spent": total_spent,
         "active_count": len(active), "avg_progress": avg_progress,
     })
@@ -106,8 +106,8 @@ async def projects_page(request: Request, status: str = None, search: str = None
     if search:
         q = q.where(Project.name.ilike(f"%{search}%") | Project.client.ilike(f"%{search}%"))
     projects = (await db.execute(q)).scalars().all()
-    return templates.TemplateResponse("projects.html", {
-        "request": request, "t": get_t(lang), "lang": lang,
+    return templates.TemplateResponse(request, "projects.html", {
+        "t": get_t(lang), "lang": lang,
         "projects": projects, "filter_status": status or "", "search": search or "",
     })
 
@@ -124,8 +124,8 @@ async def project_detail(request: Request, project_id: int, db: AsyncSession = D
     team = (await db.execute(select(TeamMember))).scalars().all()
     statuses = ["backlog", "todo", "in_progress", "review", "done"]
     kanban = {s: [t for t in tasks if t.status == s] for s in statuses}
-    return templates.TemplateResponse("project_detail.html", {
-        "request": request, "t": get_t(lang), "lang": lang,
+    return templates.TemplateResponse(request, "project_detail.html", {
+        "t": get_t(lang), "lang": lang,
         "project": project, "tasks": tasks, "kanban": kanban, "team": team,
         "now_date": date.today().strftime("%Y-%m-%d"),
     })
