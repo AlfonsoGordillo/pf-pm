@@ -2,7 +2,8 @@ import os
 from anthropic import AsyncAnthropic
 from app.models import Project, Task
 
-client = AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+def get_client() -> AsyncAnthropic:
+    return AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
 
 async def assign_task(task: Task, team_members: list, lang: str = "es") -> str:
@@ -28,7 +29,7 @@ Provide:
 
 Be concise. Max 150 words."""
 
-    r = await client.messages.create(model="claude-sonnet-4-6", max_tokens=400,
+    r = await get_client().messages.create(model="claude-sonnet-4-6", max_tokens=400,
                                      messages=[{"role": "user", "content": prompt}])
     return r.content[0].text
 
@@ -61,7 +62,7 @@ Provide:
 
 Be direct and actionable. Max 200 words."""
 
-    r = await client.messages.create(model="claude-sonnet-4-6", max_tokens=500,
+    r = await get_client().messages.create(model="claude-sonnet-4-6", max_tokens=500,
                                      messages=[{"role": "user", "content": prompt}])
     return r.content[0].text
 
@@ -92,7 +93,7 @@ Generate a concise executive status report for this project:
 
 Format as a professional report with: Executive Summary, Accomplishments This Week, In Progress, Risks & Blockers, Next Steps. Max 250 words."""
 
-    r = await client.messages.create(model="claude-sonnet-4-6", max_tokens=600,
+    r = await get_client().messages.create(model="claude-sonnet-4-6", max_tokens=600,
                                      messages=[{"role": "user", "content": prompt}])
     return r.content[0].text
 
@@ -126,6 +127,6 @@ Provide:
 
 Max 180 words. Be specific with numbers."""
 
-    r = await client.messages.create(model="claude-sonnet-4-6", max_tokens=450,
+    r = await get_client().messages.create(model="claude-sonnet-4-6", max_tokens=450,
                                      messages=[{"role": "user", "content": prompt}])
     return r.content[0].text
