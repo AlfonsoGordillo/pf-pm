@@ -53,13 +53,18 @@
           <div class="kanban-col flex-1">
             <div class="flex items-center justify-between mb-3">
               <span class="badge badge-{{ col_status }}">{{ t['tk_' + col_status] }}</span>
-              <span class="text-xs text-slate-500">{{ kanban[col_status] | length }}</span>
+              <span class="col-count text-xs text-slate-500" data-status="{{ col_status }}">{{ kanban[col_status] | length }}</span>
             </div>
-            <div class="space-y-2">
+            <div class="task-drop-zone min-h-16 rounded-lg p-1 transition-colors"
+                 data-status="{{ col_status }}"
+                 style="border:2px dashed transparent">
               {% for task in kanban[col_status] %}
-              <div class="p-3 rounded-lg cursor-pointer hover:border-indigo-500/30 transition-all"
-                   style="background:#0f172a;border:1px solid rgba(255,255,255,.06)"
-                   @click="selectTask({{ task.id }}, '{{ task.title | replace("'","\\'")|replace('"','\\"') }}')">
+              <div class="task-card p-3 rounded-lg mb-2 cursor-grab active:cursor-grabbing transition-all"
+                   draggable="true"
+                   data-task-id="{{ task.id }}"
+                   data-status="{{ col_status }}"
+                   style="background:#0f172a;border:1px solid rgba(255,255,255,.06);user-select:none"
+                   @click="!$el.dataset.dragging && selectTask({{ task.id }}, '{{ task.title | replace("'","\\'")|replace('"','\\"') }}')">
                 {% if task.is_blocked %}
                 <div class="flex items-center gap-1 mb-1">
                   <span class="text-xs text-red-400 font-semibold">⚠ {{ t.blocked }}</span>
@@ -81,7 +86,7 @@
               </div>
               {% endfor %}
               {% if not kanban[col_status] %}
-              <div class="text-xs text-slate-600 text-center py-4">{{ t.no_tasks }}</div>
+              <div class="empty-label text-xs text-slate-600 text-center py-4">{{ t.no_tasks }}</div>
               {% endif %}
             </div>
           </div>
@@ -170,7 +175,97 @@
   </div>
 </div>
 
+<style>
+.task-drop-zone.drag-over { border-color: rgba(99,102,241,.5)!important; background:rgba(99,102,241,.06)!important; }
+.task-card.dragging { opacity:.35; transform:scale(.97); }
+.task-card:hover { box-shadow:0 3px 12px rgba(0,0,0,.4); }
+</style>
+
 <script>
+// ── Kanban Drag & Drop ───────────────────────────────────
+(function() {
+  let dragged = null, srcZone = null;
+
+  document.addEventListener('dragstart', e => {
+    const card = e.target.closest('.task-card');
+    if (!card) return;
+    dragged = card;
+    srcZone = card.closest('.task-drop-zone');
+    card.dataset.dragging = '1';
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', card.dataset.taskId);
+    setTimeout(() => card.classList.add('dragging'), 0);
+  });
+
+  document.addEventListener('dragend', () => {
+    if (dragged) { dragged.classList.remove('dragging'); delete dragged.dataset.dragging; }
+    document.querySelectorAll('.task-drop-zone').forEach(z => z.classList.remove('drag-over'));
+    dragged = null; srcZone = null;
+  });
+
+  document.querySelectorAll('.task-drop-zone').forEach(zone => {
+    zone.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
+    zone.addEventListener('dragenter', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', e => { if (!zone.contains(e.relatedTarget)) zone.classList.remove('drag-over'); });
+
+    zone.addEventListener('drop', async e => {
+      e.preventDefault();
+      zone.classList.remove('drag-over');
+      if (!dragged || zone === srcZone) return;
+
+      const newStatus = zone.dataset.status;
+      const taskId    = dragged.dataset.taskId;
+
+      // Move card in DOM
+      const empty = zone.querySelector('.empty-label');
+      if (empty) empty.remove();
+      dragged.dataset.status = newStatus;
+      zone.appendChild(dragged);
+
+      // If source zone now empty
+      if (srcZone && !srcZone.querySelector('.task-card')) {
+        srcZone.innerHTML = '<div class="empty-label text-xs text-slate-600 text-center py-4">—</div>';
+      }
+
+      // Update column counters
+      updateCount(zone.dataset.status, +1);
+      updateCount(srcZone ? srcZone.dataset.status : null, -1);
+
+      // Persist
+      try {
+        const r = await fetch(`/tasks/${taskId}/status`, {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({status: newStatus}),
+        });
+        if (!r.ok) throw new Error();
+        showToast('✓ ' + newStatus.replace('_',' '));
+      } catch { showToast('Error — refresh', true); }
+    });
+  });
+
+  function updateCount(status, delta) {
+    if (!status) return;
+    const el = document.querySelector(`.col-count[data-status="${status}"]`);
+    if (el) el.textContent = Math.max(0, parseInt(el.textContent || '0') + delta);
+  }
+
+  function showToast(msg, err = false) {
+    let t = document.getElementById('pm-toast');
+    if (!t) {
+      t = document.createElement('div');
+      t.id = 'pm-toast';
+      t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#1e293b;border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 16px;font-size:13px;color:#e2e8f0;opacity:0;transition:opacity .3s;pointer-events:none;z-index:100';
+      document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.style.borderColor = err ? 'rgba(239,68,68,.4)' : 'rgba(99,102,241,.4)';
+    t.style.opacity = '1';
+    clearTimeout(t._tid);
+    t._tid = setTimeout(() => t.style.opacity = '0', 2200);
+  }
+})();
+
 function pmAgent() {
   return {
     loading: false, result: '', actionLabel: '', selectedTaskId: null, selectedTaskTitle: '',
