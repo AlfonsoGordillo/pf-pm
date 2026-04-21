@@ -229,6 +229,75 @@ async def delete_member(member_id: int, request: Request, db: AsyncSession = Dep
     return RedirectResponse(url="/team", status_code=302)
 
 
+# ── Tasks CRUD ──────────────────────────────────────────────────────────────
+
+@app.post("/projects/{project_id}/tasks")
+async def create_task(project_id: int, request: Request, db: AsyncSession = Depends(get_db),
+    title: str = Form(...), description: str = Form(""),
+    status: str = Form("todo"), priority: str = Form("medium"),
+    assigned_member_id: int = Form(None), start_date: str = Form(""),
+    due_date: str = Form(""), estimated_hours: float = Form(0),
+    budget: float = Form(0), is_blocked: bool = Form(False)):
+    if not auth_check(request):
+        return RedirectResponse(url="/login", status_code=302)
+    from datetime import date as dt
+    member = None
+    if assigned_member_id:
+        member = (await db.execute(select(TeamMember).where(TeamMember.id == assigned_member_id))).scalar_one_or_none()
+    task = Task(
+        project_id=project_id, title=title, description=description,
+        status=status, priority=priority,
+        assigned_to=member.name if member else "",
+        assigned_member_id=assigned_member_id if member else None,
+        start_date=dt.fromisoformat(start_date) if start_date else None,
+        due_date=dt.fromisoformat(due_date) if due_date else None,
+        budget=budget, estimated_hours=estimated_hours, is_blocked=is_blocked,
+    )
+    db.add(task)
+    await db.commit()
+    return RedirectResponse(url=f"/projects/{project_id}", status_code=302)
+
+
+@app.post("/tasks/{task_id}/edit")
+async def edit_task(task_id: int, request: Request, db: AsyncSession = Depends(get_db),
+    title: str = Form(...), description: str = Form(""),
+    status: str = Form("todo"), priority: str = Form("medium"),
+    assigned_member_id: int = Form(None), start_date: str = Form(""),
+    due_date: str = Form(""), estimated_hours: float = Form(0),
+    budget: float = Form(0), is_blocked: bool = Form(False)):
+    if not auth_check(request):
+        return RedirectResponse(url="/login", status_code=302)
+    from datetime import date as dt
+    task = (await db.execute(select(Task).where(Task.id == task_id))).scalar_one_or_none()
+    if not task:
+        raise HTTPException(status_code=404)
+    member = None
+    if assigned_member_id:
+        member = (await db.execute(select(TeamMember).where(TeamMember.id == assigned_member_id))).scalar_one_or_none()
+    task.title = title; task.description = description
+    task.status = status; task.priority = priority
+    task.assigned_to = member.name if member else task.assigned_to
+    task.assigned_member_id = assigned_member_id if member else task.assigned_member_id
+    task.start_date = dt.fromisoformat(start_date) if start_date else None
+    task.due_date = dt.fromisoformat(due_date) if due_date else None
+    task.budget = budget; task.estimated_hours = estimated_hours; task.is_blocked = is_blocked
+    await db.commit()
+    return RedirectResponse(url=f"/projects/{task.project_id}", status_code=302)
+
+
+@app.post("/tasks/{task_id}/delete")
+async def delete_task(task_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+    if not auth_check(request):
+        return RedirectResponse(url="/login", status_code=302)
+    task = (await db.execute(select(Task).where(Task.id == task_id))).scalar_one_or_none()
+    if task:
+        project_id = task.project_id
+        await db.delete(task)
+        await db.commit()
+        return RedirectResponse(url=f"/projects/{project_id}", status_code=302)
+    raise HTTPException(status_code=404)
+
+
 @app.post("/tasks/{task_id}/status")
 async def update_task_status(task_id: int, request: Request, db: AsyncSession = Depends(get_db)):
     if not auth_check(request):

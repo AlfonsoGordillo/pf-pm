@@ -3,10 +3,14 @@
 {% block nav_proj %}active{% endblock %}
 
 {% block content %}
-<div class="p-6 space-y-5" x-data="pmAgent()" x-cloak>
+<div class="p-6 space-y-5" x-data="projectPage()" x-cloak>
 
-  <div class="flex items-center gap-3">
+  <div class="flex items-center justify-between">
     <a href="/projects" class="text-sm text-slate-400 hover:text-slate-200">{{ t.back_to_projects }}</a>
+    <button @click="openCreateTask()" class="btn-primary flex items-center gap-2 text-sm">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      {{ t.new_task }}
+    </button>
   </div>
 
   <!-- Project header -->
@@ -44,7 +48,8 @@
   </div>
 
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
-    <!-- Kanban board (2/3 width) -->
+
+    <!-- Kanban (2/3) -->
     <div class="lg:col-span-2 space-y-4">
       <div class="text-sm font-semibold text-slate-200">{{ t.kanban_board }}</div>
       <div class="overflow-x-auto pb-2">
@@ -55,25 +60,34 @@
               <span class="badge badge-{{ col_status }}">{{ t['tk_' + col_status] }}</span>
               <span class="col-count text-xs text-slate-500" data-status="{{ col_status }}">{{ kanban[col_status] | length }}</span>
             </div>
-            <div class="task-drop-zone min-h-16 rounded-lg p-1 transition-colors"
-                 data-status="{{ col_status }}"
-                 style="border:2px dashed transparent">
+            <div class="task-drop-zone min-h-16 rounded-lg p-1 transition-colors" data-status="{{ col_status }}" style="border:2px dashed transparent">
               {% for task in kanban[col_status] %}
-              <div class="task-card p-3 rounded-lg mb-2 cursor-grab active:cursor-grabbing transition-all"
-                   draggable="true"
-                   data-task-id="{{ task.id }}"
-                   data-status="{{ col_status }}"
-                   style="background:#0f172a;border:1px solid rgba(255,255,255,.06);user-select:none"
-                   @click="!$el.dataset.dragging && selectTask({{ task.id }}, '{{ task.title | replace("'","\\'")|replace('"','\\"') }}')">
-                {% if task.is_blocked %}
-                <div class="flex items-center gap-1 mb-1">
-                  <span class="text-xs text-red-400 font-semibold">⚠ {{ t.blocked }}</span>
+              <div class="task-card group p-3 rounded-lg mb-2 cursor-grab active:cursor-grabbing"
+                   draggable="true" data-task-id="{{ task.id }}" data-status="{{ col_status }}"
+                   style="background:#0f172a;border:1px solid rgba(255,255,255,.06);user-select:none;transition:box-shadow .15s">
+                {% if task.is_blocked %}<div class="text-xs text-red-400 font-semibold mb-1">⚠ {{ t.blocked }}</div>{% endif %}
+                <div class="flex items-start justify-between gap-1 mb-1.5">
+                  <div class="text-xs font-medium text-slate-200 leading-snug flex-1"
+                       @click="!$el.closest('.task-card').dataset.dragging && openEditTask({{ task.id }}, '{{ task.title|replace("'","\\'")|replace('"','\\"') }}', '{{ task.description|replace("'","\\'")|replace('"','\\"') }}', '{{ task.status }}', '{{ task.priority }}', {{ task.assigned_member_id or 'null' }}, '{{ task.start_date or '' }}', '{{ task.due_date or '' }}', {{ task.estimated_hours }}, {{ task.budget }}, {{ 'true' if task.is_blocked else 'false' }})">
+                    {{ task.title }}
+                  </div>
+                  <div class="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                    <button class="p-0.5 text-slate-500 hover:text-indigo-400"
+                            @click.stop="openEditTask({{ task.id }}, '{{ task.title|replace("'","\\'")|replace('"','\\"') }}', '{{ task.description|replace("'","\\'")|replace('"','\\"') }}', '{{ task.status }}', '{{ task.priority }}', {{ task.assigned_member_id or 'null' }}, '{{ task.start_date or '' }}', '{{ task.due_date or '' }}', {{ task.estimated_hours }}, {{ task.budget }}, {{ 'true' if task.is_blocked else 'false' }})">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </button>
+                    <button class="p-0.5 text-slate-500 hover:text-red-400"
+                            @click.stop="confirmDeleteTask({{ task.id }}, '{{ task.title|replace("'","\\'")|replace('"','\\"') }}')">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                    </button>
+                  </div>
                 </div>
-                {% endif %}
-                <div class="text-xs font-medium text-slate-200 leading-snug mb-1.5">{{ task.title }}</div>
                 <div class="flex items-center justify-between">
                   <span class="badge badge-{{ task.priority }}">{{ t['pr_' + task.priority] }}</span>
                   <div class="flex items-center gap-1.5">
+                    {% if task.budget > 0 %}
+                    <span class="text-xs text-slate-500">${{ "{:,.0f}".format(task.budget) }}</span>
+                    {% endif %}
                     <div class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
                          style="background:{{ team | selectattr('name','equalto',task.assigned_to) | map(attribute='avatar_color') | first | default('#6366f1') }};font-size:9px">
                       {{ task.assigned_to[0] if task.assigned_to else '?' }}
@@ -83,6 +97,9 @@
                     {% endif %}
                   </div>
                 </div>
+                {% if task.start_date and task.due_date %}
+                <div class="mt-1.5 text-xs text-slate-600">{{ task.start_date.strftime('%b %d') }} → {{ task.due_date.strftime('%b %d') }}</div>
+                {% endif %}
               </div>
               {% endfor %}
               {% if not kanban[col_status] %}
@@ -100,8 +117,7 @@
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {% for member in team %}
           <div class="flex items-center gap-2 p-2 rounded-lg" style="background:rgba(255,255,255,.02)">
-            <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                 style="background:{{ member.avatar_color }}">{{ member.name[0] }}</div>
+            <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0" style="background:{{ member.avatar_color }}">{{ member.name[0] }}</div>
             <div class="min-w-0">
               <div class="text-xs font-medium text-slate-200 truncate">{{ member.name.split()[0] }}</div>
               <div class="text-xs text-slate-500 truncate">{{ member.role }}</div>
@@ -112,7 +128,7 @@
       </div>
     </div>
 
-    <!-- AI Agent panel (1/3 width) -->
+    <!-- AI Agent (1/3) -->
     <div class="space-y-4">
       <div class="card p-5">
         <div class="flex items-center gap-2 mb-1">
@@ -122,46 +138,27 @@
           <div class="text-sm font-semibold text-white">{{ t.ai_agent }}</div>
         </div>
         <p class="text-xs text-slate-400 mb-4">{{ t.ai_agent_desc }}</p>
-
-        <!-- Selected task indicator -->
         <div x-show="selectedTaskTitle" class="mb-3 p-2 rounded-lg text-xs" style="background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.2)">
-          <span class="text-slate-400">Task: </span>
-          <span class="text-indigo-300 font-medium" x-text="selectedTaskTitle"></span>
+          <span class="text-slate-400">Task: </span><span class="text-indigo-300 font-medium" x-text="selectedTaskTitle"></span>
         </div>
-
         <div class="space-y-2">
           <button class="btn-ai" @click="runAgent('assign')" :disabled="loading">
-            <div class="flex items-center gap-2">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-              <div><div class="font-semibold text-sm">{{ t.assign_task }}</div><div class="text-xs opacity-70">{{ t.assign_desc }}</div></div>
-            </div>
+            <div class="flex items-center gap-2"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><div><div class="font-semibold text-sm">{{ t.assign_task }}</div><div class="text-xs opacity-70">{{ t.assign_desc }}</div></div></div>
           </button>
           <button class="btn-ai" @click="runAgent('risks')" :disabled="loading">
-            <div class="flex items-center gap-2">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-              <div><div class="font-semibold text-sm">{{ t.detect_risks }}</div><div class="text-xs opacity-70">{{ t.risks_desc }}</div></div>
-            </div>
+            <div class="flex items-center gap-2"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><div><div class="font-semibold text-sm">{{ t.detect_risks }}</div><div class="text-xs opacity-70">{{ t.risks_desc }}</div></div></div>
           </button>
           <button class="btn-ai" @click="runAgent('report')" :disabled="loading">
-            <div class="flex items-center gap-2">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-              <div><div class="font-semibold text-sm">{{ t.generate_report }}</div><div class="text-xs opacity-70">{{ t.report_desc }}</div></div>
-            </div>
+            <div class="flex items-center gap-2"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><div><div class="font-semibold text-sm">{{ t.generate_report }}</div><div class="text-xs opacity-70">{{ t.report_desc }}</div></div></div>
           </button>
           <button class="btn-ai" @click="runAgent('budget')" :disabled="loading">
-            <div class="flex items-center gap-2">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-              <div><div class="font-semibold text-sm">{{ t.analyze_budget }}</div><div class="text-xs opacity-70">{{ t.budget_desc }}</div></div>
-            </div>
+            <div class="flex items-center gap-2"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><div><div class="font-semibold text-sm">{{ t.analyze_budget }}</div><div class="text-xs opacity-70">{{ t.budget_desc }}</div></div></div>
           </button>
         </div>
       </div>
-
-      <!-- AI Result -->
       <div x-show="loading || result" class="card p-4">
         <div x-show="loading" class="flex items-center gap-2 text-sm text-indigo-400">
-          <svg class="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-          {{ t.analyzing }}
+          <svg class="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>{{ t.analyzing }}
         </div>
         <div x-show="result && !loading">
           <div class="flex items-center justify-between mb-2">
@@ -173,123 +170,281 @@
       </div>
     </div>
   </div>
+
+  <!-- ── Gantt Chart ───────────────────────────────────────── -->
+  <div class="card p-5">
+    <div class="flex items-center justify-between mb-4">
+      <div class="text-sm font-semibold text-slate-200">{{ t.gantt_chart }}</div>
+      <div class="flex gap-3 text-xs text-slate-500">
+        {% for s, label in [('done','#4ade80'),('review','#c084fc'),('in_progress','#fb923c'),('todo','#60a5fa'),('backlog','#94a3b8')] %}
+        <span class="flex items-center gap-1"><span style="width:8px;height:8px;border-radius:2px;background:{{ label }};display:inline-block"></span>{{ t['tk_' + s] }}</span>
+        {% endfor %}
+      </div>
+    </div>
+    <div style="position:relative;height:{{ [tasks|length * 32 + 60, 200]|max }}px">
+      <canvas id="ganttChart"></canvas>
+    </div>
+  </div>
+
+  <!-- ── Task Create/Edit Modal ────────────────────────────── -->
+  <div x-show="showTaskForm" x-cloak style="position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:16px">
+    <div style="position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px)" @click="showTaskForm=false"></div>
+    <div class="relative w-full max-w-lg card p-6 overflow-y-auto" style="max-height:90vh;z-index:1">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-base font-bold text-white" x-text="taskEditId ? '{{ t.edit_task }}' : '{{ t.new_task }}'"></h2>
+        <button @click="showTaskForm=false" class="text-slate-500 hover:text-slate-300"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <form :action="taskEditId ? '/tasks/' + taskEditId + '/edit' : '/projects/{{ project.id }}/tasks'" method="post" class="space-y-3">
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">{{ t.task_title }} *</label>
+          <input name="title" x-model="tf.title" required style="width:100%" placeholder="Task title"/>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">{{ t.description }}</label>
+          <textarea name="description" x-model="tf.description" rows="2" style="width:100%;background:#0a0f1e;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:#e2e8f0;font-size:13px;padding:8px 12px;outline:none;resize:vertical"></textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">{{ t.status }}</label>
+            <select name="status" x-model="tf.status" style="width:100%">
+              {% for s in ['backlog','todo','in_progress','review','done'] %}
+              <option value="{{ s }}">{{ t['tk_' + s] }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">{{ t.priority }}</label>
+            <select name="priority" x-model="tf.priority" style="width:100%">
+              {% for p in ['low','medium','high','critical'] %}
+              <option value="{{ p }}">{{ t['pr_' + p] }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">{{ t.start_date }}</label>
+            <input name="start_date" type="date" x-model="tf.start_date" style="width:100%"/>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">{{ t.end_date }}</label>
+            <input name="due_date" type="date" x-model="tf.due_date" style="width:100%"/>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">{{ t.estimated_hours }}</label>
+            <input name="estimated_hours" type="number" min="0" step="0.5" x-model="tf.estimated_hours" style="width:100%"/>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">{{ t.task_budget }} ($)</label>
+            <input name="budget" type="number" min="0" step="100" x-model="tf.budget" style="width:100%"/>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">{{ t.assigned }}</label>
+          <select name="assigned_member_id" x-model="tf.assigned_member_id" style="width:100%">
+            <option value="">— Unassigned —</option>
+            {% for m in team %}
+            <option value="{{ m.id }}">{{ m.name }} ({{ m.role }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <input type="checkbox" name="is_blocked" id="is_blocked" x-model="tf.is_blocked" style="width:16px;height:16px"/>
+          <label for="is_blocked" class="text-xs text-slate-400">{{ t.blocked }}</label>
+        </div>
+        <div class="flex gap-3 pt-2">
+          <button type="submit" class="btn-primary">{{ t.save }}</button>
+          <button type="button" @click="showTaskForm=false" class="py-2 px-4 text-sm text-slate-400 hover:text-slate-200">{{ t.cancel }}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Task Delete Modal ─────────────────────────────────── -->
+  <div x-show="showTaskDelete" x-cloak style="position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:16px">
+    <div style="position:absolute;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px)" @click="showTaskDelete=false"></div>
+    <div class="relative card p-6 w-full max-w-sm" style="z-index:1">
+      <h2 class="text-base font-bold text-white mb-2">{{ t.delete_task }}</h2>
+      <p class="text-sm text-slate-400 mb-5">{{ t.delete_confirm }} <span class="text-white font-semibold" x-text="taskDeleteLabel"></span>?</p>
+      <div class="flex gap-3">
+        <form :action="'/tasks/' + taskDeleteId + '/delete'" method="post">
+          <button type="submit" class="py-2 px-4 rounded-lg text-sm font-semibold text-white" style="background:#ef4444">{{ t.delete }}</button>
+        </form>
+        <button @click="showTaskDelete=false" class="py-2 px-4 text-sm text-slate-400 hover:text-slate-200">{{ t.cancel }}</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
+<!-- Chart.js date adapter -->
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+
 <style>
-.task-drop-zone.drag-over { border-color: rgba(99,102,241,.5)!important; background:rgba(99,102,241,.06)!important; }
-.task-card.dragging { opacity:.35; transform:scale(.97); }
-.task-card:hover { box-shadow:0 3px 12px rgba(0,0,0,.4); }
+.task-drop-zone.drag-over{border-color:rgba(99,102,241,.5)!important;background:rgba(99,102,241,.06)!important}
+.task-card.dragging{opacity:.35;transform:scale(.97)}
+.task-card:hover{box-shadow:0 3px 12px rgba(0,0,0,.4)}
 </style>
 
 <script>
-// ── Kanban Drag & Drop ───────────────────────────────────
+// ── Gantt Chart ──────────────────────────────────────────────────────────────
+const GANTT_TASKS = [
+  {% for task in tasks %}
+  {
+    id: {{ task.id }},
+    title: {{ task.title | tojson }},
+    status: "{{ task.status }}",
+    priority: "{{ task.priority }}",
+    start: {{ (task.start_date.isoformat() if task.start_date else project.start_date.isoformat()) | tojson }},
+    end:   {{ (task.due_date.isoformat()   if task.due_date   else project.end_date.isoformat())   | tojson }},
+    budget: {{ task.budget }},
+    assigned: {{ task.assigned_to | tojson }},
+  },
+  {% endfor %}
+];
+
+const STATUS_COLORS = {
+  done:        'rgba(74,222,128,.75)',
+  review:      'rgba(192,132,252,.75)',
+  in_progress: 'rgba(251,146,60,.75)',
+  todo:        'rgba(96,165,250,.75)',
+  backlog:     'rgba(148,163,184,.5)',
+};
+
+(function buildGantt() {
+  const ctx = document.getElementById('ganttChart').getContext('2d');
+  const labels = GANTT_TASKS.map(t => t.title.length > 28 ? t.title.slice(0,26)+'…' : t.title);
+  const data   = GANTT_TASKS.map(t => [new Date(t.start).getTime(), new Date(t.end).getTime()]);
+  const colors = GANTT_TASKS.map(t => STATUS_COLORS[t.status] || STATUS_COLORS.backlog);
+
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: colors,
+        borderRadius: 4,
+        barThickness: 18,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          type: 'time',
+          time: { unit: 'week', displayFormats: { week: 'MMM d', day: 'MMM d' } },
+          min: {{ project.start_date.isoformat() | tojson }},
+          max: {{ project.end_date.isoformat()   | tojson }},
+          grid: { color: 'rgba(255,255,255,.05)' },
+          ticks: { color: '#64748b', font: { size: 10 } },
+        },
+        y: {
+          grid: { display: false },
+          ticks: { color: '#94a3b8', font: { size: 11 }, crossAlign: 'far' },
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: ctx => GANTT_TASKS[ctx[0].dataIndex].title,
+            label: ctx => {
+              const t = GANTT_TASKS[ctx.dataIndex];
+              const fmt = d => new Date(d).toLocaleDateString('en-US', { month:'short', day:'numeric' });
+              const lines = [`${fmt(ctx.raw[0])} → ${fmt(ctx.raw[1])}`];
+              if (t.budget > 0) lines.push(`Budget: $${t.budget.toLocaleString()}`);
+              if (t.assigned) lines.push(`Assigned: ${t.assigned}`);
+              return lines;
+            }
+          },
+          backgroundColor: '#0f172a',
+          borderColor: 'rgba(255,255,255,.1)',
+          borderWidth: 1,
+          titleColor: '#e2e8f0',
+          bodyColor: '#94a3b8',
+        }
+      }
+    }
+  });
+})();
+
+// ── Kanban Drag & Drop ───────────────────────────────────────────────────────
 (function() {
   let dragged = null, srcZone = null;
-
   document.addEventListener('dragstart', e => {
     const card = e.target.closest('.task-card');
     if (!card) return;
-    dragged = card;
-    srcZone = card.closest('.task-drop-zone');
+    dragged = card; srcZone = card.closest('.task-drop-zone');
     card.dataset.dragging = '1';
     e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', card.dataset.taskId);
     setTimeout(() => card.classList.add('dragging'), 0);
   });
-
   document.addEventListener('dragend', () => {
     if (dragged) { dragged.classList.remove('dragging'); delete dragged.dataset.dragging; }
     document.querySelectorAll('.task-drop-zone').forEach(z => z.classList.remove('drag-over'));
     dragged = null; srcZone = null;
   });
-
   document.querySelectorAll('.task-drop-zone').forEach(zone => {
     zone.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
     zone.addEventListener('dragenter', e => { e.preventDefault(); zone.classList.add('drag-over'); });
     zone.addEventListener('dragleave', e => { if (!zone.contains(e.relatedTarget)) zone.classList.remove('drag-over'); });
-
     zone.addEventListener('drop', async e => {
-      e.preventDefault();
-      zone.classList.remove('drag-over');
+      e.preventDefault(); zone.classList.remove('drag-over');
       if (!dragged || zone === srcZone) return;
-
-      const newStatus = zone.dataset.status;
-      const taskId    = dragged.dataset.taskId;
-
-      // Move card in DOM
-      const empty = zone.querySelector('.empty-label');
-      if (empty) empty.remove();
-      dragged.dataset.status = newStatus;
-      zone.appendChild(dragged);
-
-      // If source zone now empty
-      if (srcZone && !srcZone.querySelector('.task-card')) {
+      const newStatus = zone.dataset.status, taskId = dragged.dataset.taskId;
+      const empty = zone.querySelector('.empty-label'); if (empty) empty.remove();
+      dragged.dataset.status = newStatus; zone.appendChild(dragged);
+      if (srcZone && !srcZone.querySelector('.task-card'))
         srcZone.innerHTML = '<div class="empty-label text-xs text-slate-600 text-center py-4">—</div>';
-      }
-
-      // Update column counters
-      updateCount(zone.dataset.status, +1);
-      updateCount(srcZone ? srcZone.dataset.status : null, -1);
-
-      // Persist
+      const upd = s => { const el = document.querySelector(`.col-count[data-status="${s}"]`); if (el) el.textContent = Math.max(0, parseInt(el.textContent||'0') + (s===newStatus?1:-1)); };
+      upd(newStatus); if (srcZone) upd(srcZone.dataset.status);
       try {
-        const r = await fetch(`/tasks/${taskId}/status`, {
-          method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({status: newStatus}),
-        });
+        const r = await fetch(`/tasks/${taskId}/status`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({status:newStatus}) });
         if (!r.ok) throw new Error();
         showToast('✓ ' + newStatus.replace('_',' '));
       } catch { showToast('Error — refresh', true); }
     });
   });
-
-  function updateCount(status, delta) {
-    if (!status) return;
-    const el = document.querySelector(`.col-count[data-status="${status}"]`);
-    if (el) el.textContent = Math.max(0, parseInt(el.textContent || '0') + delta);
-  }
-
-  function showToast(msg, err = false) {
+  function showToast(msg, err=false) {
     let t = document.getElementById('pm-toast');
-    if (!t) {
-      t = document.createElement('div');
-      t.id = 'pm-toast';
-      t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#1e293b;border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 16px;font-size:13px;color:#e2e8f0;opacity:0;transition:opacity .3s;pointer-events:none;z-index:100';
-      document.body.appendChild(t);
-    }
-    t.textContent = msg;
-    t.style.borderColor = err ? 'rgba(239,68,68,.4)' : 'rgba(99,102,241,.4)';
-    t.style.opacity = '1';
-    clearTimeout(t._tid);
-    t._tid = setTimeout(() => t.style.opacity = '0', 2200);
+    if (!t) { t = document.createElement('div'); t.id='pm-toast'; t.style.cssText='position:fixed;bottom:24px;right:24px;background:#1e293b;border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 16px;font-size:13px;color:#e2e8f0;opacity:0;transition:opacity .3s;pointer-events:none;z-index:100'; document.body.appendChild(t); }
+    t.textContent = msg; t.style.borderColor = err ? 'rgba(239,68,68,.4)' : 'rgba(99,102,241,.4)';
+    t.style.opacity = '1'; clearTimeout(t._tid); t._tid = setTimeout(() => t.style.opacity='0', 2200);
   }
 })();
 
-function pmAgent() {
+// ── Alpine component ─────────────────────────────────────────────────────────
+function projectPage() {
   return {
+    // AI Agent
     loading: false, result: '', actionLabel: '', selectedTaskId: null, selectedTaskTitle: '',
-    labels: {
-      assign: '{{ t.assign_task }}', risks: '{{ t.detect_risks }}',
-      report: '{{ t.generate_report }}', budget: '{{ t.analyze_budget }}'
-    },
-    selectTask(id, title) { this.selectedTaskId = id; this.selectedTaskTitle = title; },
+    labels: { assign:'{{ t.assign_task }}', risks:'{{ t.detect_risks }}', report:'{{ t.generate_report }}', budget:'{{ t.analyze_budget }}' },
     async runAgent(action) {
-      if (action === 'assign' && !this.selectedTaskId) {
-        this.result = '{{ t.select_task }}'; this.actionLabel = '{{ t.assign_task }}'; return;
-      }
+      if (action === 'assign' && !this.selectedTaskId) { this.result = '{{ t.select_task }}'; this.actionLabel = this.labels.assign; return; }
       this.loading = true; this.result = ''; this.actionLabel = this.labels[action];
-      const projectId = {{ project.id }};
-      const url = action === 'assign'
-        ? `/api/agent/assign/${this.selectedTaskId}`
-        : `/api/agent/${action}/${projectId}`;
-      try {
-        const r = await fetch(url, { method: 'POST' });
-        const d = await r.json();
-        this.result = d.result || d.error || 'Error';
-      } catch(e) { this.result = 'Connection error.'; }
+      const url = action === 'assign' ? `/api/agent/assign/${this.selectedTaskId}` : `/api/agent/${action}/{{ project.id }}`;
+      try { const r = await fetch(url, {method:'POST'}); const d = await r.json(); this.result = d.result || 'Error'; }
+      catch { this.result = 'Connection error.'; }
       this.loading = false;
-    }
+    },
+    // Task CRUD
+    showTaskForm: false, showTaskDelete: false,
+    taskEditId: null, taskDeleteId: null, taskDeleteLabel: '',
+    tf: { title:'', description:'', status:'todo', priority:'medium', assigned_member_id:'', start_date:'', due_date:'', estimated_hours:0, budget:0, is_blocked:false },
+    openCreateTask() {
+      this.taskEditId = null;
+      const today = new Date().toISOString().slice(0,10);
+      const plus14 = new Date(Date.now()+14*864e5).toISOString().slice(0,10);
+      this.tf = { title:'', description:'', status:'todo', priority:'medium', assigned_member_id:'', start_date:today, due_date:plus14, estimated_hours:0, budget:0, is_blocked:false };
+      this.showTaskForm = true;
+    },
+    openEditTask(id, title, desc, status, priority, memberId, start, end, hours, budget, blocked) {
+      this.taskEditId = id; this.selectedTaskId = id; this.selectedTaskTitle = title;
+      this.tf = { title, description:desc, status, priority, assigned_member_id: memberId || '', start_date: start ? String(start) : '', due_date: end ? String(end) : '', estimated_hours: hours, budget, is_blocked: blocked };
+      this.showTaskForm = true;
+    },
+    confirmDeleteTask(id, label) { this.taskDeleteId = id; this.taskDeleteLabel = label; this.showTaskDelete = true; },
   }
 }
 </script>

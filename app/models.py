@@ -51,7 +51,9 @@ class Task(Base):
     priority: Mapped[str] = mapped_column(String(20), default="medium")  # low, medium, high, critical
     assigned_to: Mapped[str] = mapped_column(String(100), default="")
     assigned_member_id: Mapped[int] = mapped_column(Integer, ForeignKey("team_members.id"), nullable=True)
+    start_date: Mapped[date] = mapped_column(Date, nullable=True)
     due_date: Mapped[date] = mapped_column(Date, nullable=True)
+    budget: Mapped[float] = mapped_column(Float, default=0.0)
     estimated_hours: Mapped[float] = mapped_column(Float, default=0.0)
     actual_hours: Mapped[float] = mapped_column(Float, default=0.0)
     is_blocked: Mapped[bool] = mapped_column(Boolean, default=False)
