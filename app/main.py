@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from contextlib import asynccontextmanager
 from datetime import date
 from fastapi import FastAPI, Request, Depends, Form, HTTPException
@@ -16,7 +17,8 @@ from app.agent import assign_task, detect_risks, generate_report, analyze_budget
 from app.i18n import get_t
 
 load_dotenv()
-templates = Jinja2Templates(directory="templates")
+BASE_DIR = Path(__file__).resolve().parent.parent
+templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 
 def get_lang(request: Request) -> str:
