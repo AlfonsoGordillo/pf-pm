@@ -26,8 +26,8 @@
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
       <div class="p-3 rounded-lg" style="background:rgba(255,255,255,.03)">
         <div class="text-xs text-slate-500 mb-1">{{ t.progress }}</div>
-        <div class="text-xl font-bold {% if project.progress >= 75 %}text-green-400{% elif project.progress >= 40 %}text-indigo-400{% else %}text-orange-400{% endif %}">{{ project.progress }}%</div>
-        <div class="progress-bar mt-2"><div style="height:5px;border-radius:3px;width:{{ project.progress }}%;background:{% if project.progress >= 75 %}#4ade80{% elif project.progress >= 40 %}#818cf8{% else %}#fb923c{% endif %}"></div></div>
+        <div id="proj-progress-pct" class="text-xl font-bold text-orange-400">{{ project.progress }}%</div>
+        <div class="progress-bar mt-2"><div id="proj-progress-bar" style="height:5px;border-radius:3px;width:{{ project.progress }}%;background:#fb923c"></div></div>
       </div>
       <div class="p-3 rounded-lg" style="background:rgba(255,255,255,.03)">
         <div class="text-xs text-slate-500 mb-1">{{ t.budget }}</div>
@@ -309,13 +309,14 @@ const STATUS_COLORS = {
   backlog:     'rgba(148,163,184,.5)',
 };
 
+let ganttChart = null;
 (function buildGantt() {
   const ctx = document.getElementById('ganttChart').getContext('2d');
   const labels = GANTT_TASKS.map(t => t.title.length > 28 ? t.title.slice(0,26)+'…' : t.title);
   const data   = GANTT_TASKS.map(t => [new Date(t.start).getTime(), new Date(t.end).getTime()]);
   const colors = GANTT_TASKS.map(t => STATUS_COLORS[t.status] || STATUS_COLORS.backlog);
 
-  new Chart(ctx, {
+  ganttChart = new Chart(ctx, {
     type: 'bar',
     data: {
       labels,
@@ -399,6 +400,22 @@ const STATUS_COLORS = {
         srcZone.innerHTML = '<div class="empty-label text-xs text-slate-600 text-center py-4">—</div>';
       const upd = s => { const el = document.querySelector(`.col-count[data-status="${s}"]`); if (el) el.textContent = Math.max(0, parseInt(el.textContent||'0') + (s===newStatus?1:-1)); };
       upd(newStatus); if (srcZone) upd(srcZone.dataset.status);
+      // Update GANTT_TASKS status + refresh chart colors
+      const gt = GANTT_TASKS.find(t => t.id == taskId);
+      if (gt && ganttChart) {
+        gt.status = newStatus;
+        ganttChart.data.datasets[0].backgroundColor = GANTT_TASKS.map(t => STATUS_COLORS[t.status] || STATUS_COLORS.backlog);
+        ganttChart.update('none');
+      }
+      // Recalculate progress card
+      const allCards = document.querySelectorAll('.task-card');
+      const doneCards = document.querySelectorAll('.task-card[data-status="done"]');
+      const total = allCards.length;
+      const pct = total ? Math.round(doneCards.length / total * 100) : 0;
+      const pEl = document.getElementById('proj-progress-pct');
+      const bEl = document.getElementById('proj-progress-bar');
+      if (pEl) { pEl.textContent = pct + '%'; pEl.className = 'text-xl font-bold ' + (pct>=75?'text-green-400':pct>=40?'text-indigo-400':'text-orange-400'); }
+      if (bEl) { bEl.style.width = pct + '%'; bEl.style.background = pct>=75?'#4ade80':pct>=40?'#818cf8':'#fb923c'; }
       try {
         const r = await fetch(`/tasks/${taskId}/status`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({status:newStatus}) });
         if (!r.ok) throw new Error();

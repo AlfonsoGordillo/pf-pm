@@ -31,6 +31,9 @@ TRANSLATIONS = {
         "new_member": "New Member", "edit_member": "Edit Member",
         "delete_member": "Delete Member", "members": "members",
         "name": "Name", "role": "Role", "avatar_color": "Avatar Color",
+        "new_task": "New Task", "edit_task": "Edit Task", "delete_task": "Delete Task",
+        "task_title": "Title", "task_budget": "Budget", "estimated_hours": "Est. Hours",
+        "gantt_chart": "Gantt Chart",
     },
     "es": {
         "app_name": "PM AI", "tagline": "Gestión de Proyectos con IA",
@@ -65,6 +68,9 @@ TRANSLATIONS = {
         "new_member": "Nuevo Miembro", "edit_member": "Editar Miembro",
         "delete_member": "Eliminar Miembro", "members": "miembros",
         "name": "Nombre", "role": "Rol", "avatar_color": "Color Avatar",
+        "new_task": "Nueva Tarea", "edit_task": "Editar Tarea", "delete_task": "Eliminar Tarea",
+        "task_title": "Título", "task_budget": "Presupuesto", "estimated_hours": "Horas Est.",
+        "gantt_chart": "Diagrama Gantt",
     },
 }
 
