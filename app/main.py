@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import date, timedelta
 from fastapi import FastAPI, Request, Depends, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
@@ -207,7 +207,96 @@ async def team_page(request: Request, db: AsyncSession = Depends(get_db)):
         return RedirectResponse(url="/login", status_code=302)
     lang = get_lang(request)
     members = (await db.execute(select(TeamMember).order_by(TeamMember.name))).scalars().all()
-    return templates.TemplateResponse(request, "team.html", {"t": get_t(lang), "lang": lang, "members": members})
+    tasks = (await db.execute(
+        select(Task).where(Task.assigned_member_id.isnot(None))
+    )).scalars().all()
+    projects = (await db.execute(select(Project))).scalars().all()
+
+    proj_map = {p.id: p for p in projects}
+    PALETTE = ['#6366f1','#8b5cf6','#22d3ee','#4ade80','#fb923c','#f472b6','#facc15','#2dd4bf','#ef4444','#3b82f6']
+
+    # Timeline window: today-7 to today+97  (104 days)
+    win_start = date.today() - timedelta(days=7)
+    win_end   = date.today() + timedelta(days=97)
+    win_days  = (win_end - win_start).days
+
+    def bar(start, end):
+        s = max(start, win_start) if start else win_start
+        e = min(end,   win_end)   if end   else win_end
+        left  = max(0, (s - win_start).days / win_days * 100)
+        width = max(2, (e - s).days          / win_days * 100)
+        return round(left, 1), round(min(width, 100 - left), 1)
+
+    member_data = []
+    for m in members:
+        mtasks = [t for t in tasks if t.assigned_member_id == m.id]
+        # group by project
+        proj_groups: dict = {}
+        for t in mtasks:
+            pid = t.project_id
+            if pid not in proj_groups:
+                proj_groups[pid] = {'tasks': [], 'active_h': 0}
+            proj_groups[pid]['tasks'].append(t)
+            if t.status in ('todo', 'in_progress', 'review'):
+                proj_groups[pid]['active_h'] += t.estimated_hours or 0
+
+        proj_list = []
+        for pid, g in proj_groups.items():
+            p = proj_map.get(pid)
+            if not p:
+                continue
+            starts = [t.start_date for t in g['tasks'] if t.start_date]
+            ends   = [t.due_date   for t in g['tasks'] if t.due_date]
+            pstart = min(starts) if starts else win_start
+            pend   = max(ends)   if ends   else win_end
+            bleft, bwidth = bar(pstart, pend)
+            proj_list.append({
+                'id': pid, 'name': p.name, 'status': p.status,
+                'color': PALETTE[pid % len(PALETTE)],
+                'task_count': len(g['tasks']),
+                'active_h': round(g['active_h']),
+                'start': pstart, 'end': pend,
+                'bar_left': bleft, 'bar_width': bwidth,
+            })
+        proj_list.sort(key=lambda x: x['start'])
+
+        total_active_h = sum(g['active_h'] for g in proj_groups.values())
+        capacity_pct   = min(100, round(total_active_h / 80 * 100))
+        if total_active_h == 0:
+            avail = 'free'
+        elif total_active_h < 20:
+            avail = 'available'
+        elif total_active_h < 40:
+            avail = 'busy'
+        else:
+            avail = 'overloaded'
+
+        member_data.append({
+            'member': m,
+            'projects': proj_list,
+            'total_active_h': round(total_active_h),
+            'capacity_pct': capacity_pct,
+            'availability': avail,
+        })
+
+    # Timeline tick marks (months)
+    ticks = []
+    cur = win_start.replace(day=1)
+    while cur <= win_end:
+        left = round((cur - win_start).days / win_days * 100, 1)
+        ticks.append({'label': cur.strftime('%b'), 'left': left})
+        # advance one month
+        m2 = cur.month % 12 + 1
+        y2 = cur.year + (1 if cur.month == 12 else 0)
+        cur = cur.replace(year=y2, month=m2, day=1)
+
+    today_left = round((date.today() - win_start).days / win_days * 100, 1)
+
+    return templates.TemplateResponse(request, "team.html", {
+        "t": get_t(lang), "lang": lang,
+        "members": members, "member_data": member_data,
+        "ticks": ticks, "today_left": today_left,
+    })
 
 
 @app.post("/team")
