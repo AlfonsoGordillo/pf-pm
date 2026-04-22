@@ -56,6 +56,7 @@ class Task(Base):
     budget: Mapped[float] = mapped_column(Float, default=0.0)
     estimated_hours: Mapped[float] = mapped_column(Float, default=0.0)
     actual_hours: Mapped[float] = mapped_column(Float, default=0.0)
+    progress: Mapped[int] = mapped_column(Integer, default=0)
     is_blocked: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

@@ -124,10 +124,12 @@ async def project_detail(request: Request, project_id: int, db: AsyncSession = D
     team = (await db.execute(select(TeamMember))).scalars().all()
     statuses = ["backlog", "todo", "in_progress", "review", "done"]
     kanban = {s: [t for t in tasks if t.status == s] for s in statuses}
+    task_budget_allocated = sum(t.budget for t in tasks)
     return templates.TemplateResponse(request, "project_detail.html", {
         "t": get_t(lang), "lang": lang,
         "project": project, "tasks": tasks, "kanban": kanban, "team": team,
         "now_date": date.today().strftime("%Y-%m-%d"),
+        "task_budget_allocated": task_budget_allocated,
     })
 
 
@@ -229,6 +231,22 @@ async def delete_member(member_id: int, request: Request, db: AsyncSession = Dep
     return RedirectResponse(url="/team", status_code=302)
 
 
+# ── Helpers ─────────────────────────────────────────────────────────────────
+
+async def _recalc_project(db: AsyncSession, project_id: int):
+    """Recompute project.progress (avg task progress) and project.spent (sum task budgets)."""
+    tasks = (await db.execute(select(Task).where(Task.project_id == project_id))).scalars().all()
+    proj = (await db.execute(select(Project).where(Project.id == project_id))).scalar_one_or_none()
+    if not proj:
+        return
+    if tasks:
+        proj.progress = round(sum(t.progress for t in tasks) / len(tasks))
+        proj.spent = sum(t.budget for t in tasks)
+    else:
+        proj.progress = 0
+        proj.spent = 0.0
+
+
 # ── Tasks CRUD ──────────────────────────────────────────────────────────────
 
 @app.post("/projects/{project_id}/tasks")
@@ -237,7 +255,7 @@ async def create_task(project_id: int, request: Request, db: AsyncSession = Depe
     status: str = Form("todo"), priority: str = Form("medium"),
     assigned_member_id: int = Form(None), start_date: str = Form(""),
     due_date: str = Form(""), estimated_hours: float = Form(0),
-    budget: float = Form(0), is_blocked: bool = Form(False)):
+    budget: float = Form(0), progress: int = Form(0), is_blocked: bool = Form(False)):
     if not auth_check(request):
         return RedirectResponse(url="/login", status_code=302)
     from datetime import date as dt
@@ -251,9 +269,12 @@ async def create_task(project_id: int, request: Request, db: AsyncSession = Depe
         assigned_member_id=assigned_member_id if member else None,
         start_date=dt.fromisoformat(start_date) if start_date else None,
         due_date=dt.fromisoformat(due_date) if due_date else None,
-        budget=budget, estimated_hours=estimated_hours, is_blocked=is_blocked,
+        budget=budget, estimated_hours=estimated_hours,
+        progress=min(100, max(0, progress)), is_blocked=is_blocked,
     )
     db.add(task)
+    await db.flush()
+    await _recalc_project(db, project_id)
     await db.commit()
     return RedirectResponse(url=f"/projects/{project_id}", status_code=302)
 
@@ -264,7 +285,7 @@ async def edit_task(task_id: int, request: Request, db: AsyncSession = Depends(g
     status: str = Form("todo"), priority: str = Form("medium"),
     assigned_member_id: int = Form(None), start_date: str = Form(""),
     due_date: str = Form(""), estimated_hours: float = Form(0),
-    budget: float = Form(0), is_blocked: bool = Form(False)):
+    budget: float = Form(0), progress: int = Form(0), is_blocked: bool = Form(False)):
     if not auth_check(request):
         return RedirectResponse(url="/login", status_code=302)
     from datetime import date as dt
@@ -280,9 +301,12 @@ async def edit_task(task_id: int, request: Request, db: AsyncSession = Depends(g
     task.assigned_member_id = assigned_member_id if member else task.assigned_member_id
     task.start_date = dt.fromisoformat(start_date) if start_date else None
     task.due_date = dt.fromisoformat(due_date) if due_date else None
-    task.budget = budget; task.estimated_hours = estimated_hours; task.is_blocked = is_blocked
+    task.budget = budget; task.estimated_hours = estimated_hours
+    task.progress = min(100, max(0, progress)); task.is_blocked = is_blocked
+    project_id = task.project_id
+    await _recalc_project(db, project_id)
     await db.commit()
-    return RedirectResponse(url=f"/projects/{task.project_id}", status_code=302)
+    return RedirectResponse(url=f"/projects/{project_id}", status_code=302)
 
 
 @app.post("/tasks/{task_id}/delete")
@@ -293,6 +317,8 @@ async def delete_task(task_id: int, request: Request, db: AsyncSession = Depends
     if task:
         project_id = task.project_id
         await db.delete(task)
+        await db.flush()
+        await _recalc_project(db, project_id)
         await db.commit()
         return RedirectResponse(url=f"/projects/{project_id}", status_code=302)
     raise HTTPException(status_code=404)
@@ -307,6 +333,7 @@ async def update_task_status(task_id: int, request: Request, db: AsyncSession = 
     if not task:
         raise HTTPException(status_code=404)
     task.status = data.get("status", task.status)
+    await _recalc_project(db, task.project_id)
     await db.commit()
     return JSONResponse({"ok": True})
 
