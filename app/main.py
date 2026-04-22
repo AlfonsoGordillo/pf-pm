@@ -6,10 +6,10 @@ from fastapi import FastAPI, Request, Depends, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, text
 from dotenv import load_dotenv
 
-from app.database import get_db, init_db, async_session
+from app.database import get_db, init_db, async_session, engine, DATABASE_URL
 from app.models import Project, Task, TeamMember, User
 from app.auth import verify_password, create_token, decode_token, hash_password, auth_check
 from app.seed import seed_database
@@ -26,8 +26,23 @@ def get_lang(request: Request) -> str:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
     await init_db()
+    # Migration: add columns introduced after initial deploy
+    async with engine.begin() as conn:
+        for stmt in [
+            "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS progress INTEGER DEFAULT 0",
+            "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS start_date DATE",
+            "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS budget FLOAT DEFAULT 0",
+        ] if not DATABASE_URL.startswith("sqlite") else [
+            "ALTER TABLE tasks ADD COLUMN progress INTEGER DEFAULT 0",
+            "ALTER TABLE tasks ADD COLUMN start_date DATE",
+            "ALTER TABLE tasks ADD COLUMN budget FLOAT DEFAULT 0",
+        ]:
+            try:
+                await conn.execute(text(stmt))
+            except Exception:
+                pass  # column already exists
     async with async_session() as db:
         await seed_database(db)
     yield
